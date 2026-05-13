@@ -1,0 +1,28 @@
+MIT License
+
+Copyright (c) 2026 Matt Macri
+
+The wobbly spring-mass model in src/WobblyModel.{hpp,cpp} is a C++ port of
+the JavaScript implementation in https://github.com/hermes83/compiz-windows-effect
+by Mauro Pepe, which is itself derived from the original Compiz wobbly plugin
+by David Reveman and Scott Moreau (Novell, Inc., 2005). The spring model was
+implemented by Kristian Hogsberg. The original code is distributed under a
+permissive license; see file headers for full notices.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

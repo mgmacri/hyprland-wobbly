@@ -1,0 +1,13 @@
+[repository]
+name = "hyprland-wobbly"
+author = "mgmacri"
+description = "Compiz-style wobbly windows for Hyprland"
+
+[hyprland-wobbly]
+description = "Compiz-style wobbly windows effect"
+version = "0.55.0"
+output = "hyprland-wobbly.so"
+build = [
+    "make clean",
+    "make all"
+]
