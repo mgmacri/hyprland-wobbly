@@ -50,8 +50,17 @@ Object* Model::nearestObject(double x, double y) {
 }
 
 void Model::grab(double x, double y) {
+    for (auto& o : m_objects)
+        o.immobile = false;
     m_immobile           = nearestObject(x, y);
     m_immobile->immobile = true;
+}
+
+void Model::release() {
+    if (m_immobile) {
+        m_immobile->immobile = false;
+        m_immobile           = nullptr;
+    }
 }
 
 void Model::move(double dx, double dy) {

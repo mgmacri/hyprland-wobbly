@@ -1,27 +1,36 @@
-PLUGIN_NAME = hyprland-wobbly
+CXX      := g++
+CXXFLAGS := -std=c++23 -O3 -march=native -fno-exceptions \
+            -fPIC -shared \
+            $(shell pkg-config --cflags hyprland pixman-1 wayland-client 2>/dev/null || echo "-I/usr/include/hyprland -I/usr/include/pixman-1") \
+            -I/usr/include/hyprland/.. \
+            -I/usr/include/hyprland/protocols \
+            -I/usr/include/hyprland/src \
+            -Wall -Wextra
 
-SOURCES = src/main.cpp src/WobblyModel.cpp
-OBJS    = $(SOURCES:.cpp=.o)
+TARGET   := hyprland-wobbly.so
 
-PKG_CFLAGS  = $(shell pkg-config --cflags hyprland pixman-1 libdrm pangocairo)
-PKG_LIBS    = $(shell pkg-config --libs   pixman-1 libdrm pangocairo)
+.PHONY: all clean install
 
-CXX      ?= g++
-CXXFLAGS += -std=c++26 -fPIC -O2 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable
-CXXFLAGS += -DWLR_USE_UNSTABLE
-CXXFLAGS += $(PKG_CFLAGS)
+all: $(TARGET)
 
-LDFLAGS  += -shared
+$(TARGET): main.o WobblyModel.o WobblyTransformer.o
+	$(CXX) $(CXXFLAGS) -o $@ $^ -lGLES32
+	@echo "✅ Built $(TARGET)"
 
-all: $(PLUGIN_NAME).so
+main.o: src/main.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-$(PLUGIN_NAME).so: $(OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(PKG_LIBS)
+WobblyModel.o: src/WobblyModel.cpp src/WobblyModel.hpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+WobblyTransformer.o: src/WobblyTransformer.cpp src/WobblyTransformer.hpp src/WobblyModel.hpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJS) $(PLUGIN_NAME).so
+	rm -f *.o $(TARGET)
+	@echo "🧹 Cleaned"
 
-.PHONY: all clean
+install: $(TARGET)
+	mkdir -p ~/.local/share/hypr/plugins/
+	cp $(TARGET) ~/.local/share/hypr/plugins/
+	@echo "📦 Installed"

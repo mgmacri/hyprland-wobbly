@@ -1,71 +1,65 @@
-// Spring-mass wobbly window physics, ported from
-// https://github.com/hermes83/compiz-windows-effect (Mauro Pepe), which in
-// turn derives from the original Compiz wobbly plugin by Reveman/Moreau
-// (Novell, 2005). Spring model by Kristian Hogsberg.
-
 #pragma once
-
+// SOA Physics Engine — Cache-Oblivious Design
 #include <array>
 #include <vector>
+#include <cstdint>
 
 namespace wobbly {
 
 struct Config {
-    double sizeX;
-    double sizeY;
+    double sizeX, sizeY;
     double friction; // 1..10
-    double springK;  // 1..10
-    double mass;     // 1..99 (lower = heavier; matches upstream's `100 - mass`)
-};
-
-struct Object {
-    double forceX = 0, forceY = 0;
-    double x = 0, y = 0;
-    double velocityX = 0, velocityY = 0;
-    bool   immobile = false;
-};
-
-struct Spring {
-    Object* a;
-    Object* b;
-    double  offsetX;
-    double  offsetY;
+    double springK;  // 1..10  
+    double mass;     // 1..99 (lower=heavier)
 };
 
 class Model {
-  public:
+public:
     static constexpr int GRID_W = 4;
     static constexpr int GRID_H = 4;
-    static constexpr int N      = GRID_W * GRID_H;
+    static constexpr int N      = GRID_W * GRID_H; // 16 points
 
     explicit Model(const Config& c);
 
     void grab(double x, double y);
     void move(double dx, double dy);
+    void release();
     void maximize();
     void unmaximize();
     void step(int extraSteps);
 
-    bool   moving() const { return m_movement; }
-    double width() const { return m_width; }
-    double height() const { return m_height; }
+    [[nodiscard]] bool   moving() const { return m_movement; }
+    [[nodiscard]] bool   grabbed() const { return m_immobileIdx >= 0; }
+    [[nodiscard]] double width() const { return m_width; }
+    [[nodiscard]] double height() const { return m_height; }
 
-    const std::array<Object, N>& objects() const { return m_objects; }
+    [[nodiscard]] const float* posX() const { return m_posX.data(); }
+    [[nodiscard]] const float* posY() const { return m_posY.data(); }
 
-  private:
-    Object* nearestObject(double x, double y);
+private:
+    int nearestObject(double x, double y) const;
+    static void kickNeighbours(std::vector<Spring>& springs,
+                               const int pinIdx, double intensity,
+                               const float* posX, const float* posY,
+                               float* velX, float* velY);
 
-    std::array<Object, N> m_objects{};
-    std::vector<Spring>   m_springs;
+    // SOA arrays (AVX-friendly, cache-line aligned)
+    alignas(32) std::array<float, N>  m_posX{}, m_posY{};
+    alignas(32) std::array<float, N>  m_velX{}, m_velY{};
+    alignas(32) std::array<float, N>  m_forceX{}, m_forceY{};
+    std::array<uint8_t, N>            m_immobile{}; // packed flags
 
-    double  m_width;
-    double  m_height;
-    double  m_friction;
-    double  m_springK;
-    double  m_mass;
-    bool    m_movement      = false;
-    Object* m_immobile      = nullptr;
-    double  m_intensity     = 0.8;
+    std::vector<Spring> m_springs;
+
+    double  m_width{}, m_height{}, m_friction{}, m_springK{}, m_mass{};
+    bool    m_movement = false;
+    int     m_immobileIdx = -1;
+    double  m_intensity = 0.8;
+};
+
+struct Spring {
+    int a, b;          // indices into SOA arrays
+    double offsetX, offsetY;
 };
 
 } // namespace wobbly
