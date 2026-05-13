@@ -1,11 +1,11 @@
 CXX      := g++
-CXXFLAGS := -std=c++23 -O3 -march=native -fno-exceptions \
-            -fPIC -shared \
-            $(shell pkg-config --cflags hyprland pixman-1 wayland-client 2>/dev/null || echo "-I/usr/include/hyprland -I/usr/include/pixman-1") \
+CXXFLAGS := -std=c++23 -O3 -march=native \
+            -fexceptions -fPIC -shared \
+            $(shell pkg-config --cflags hyprland pixman-1 wayland-client libdrm 2>/dev/null || echo "-I/usr/include/hyprland -I/usr/include/pixman-1 -I/usr/include/libdrm") \
             -I/usr/include/hyprland/.. \
             -I/usr/include/hyprland/protocols \
             -I/usr/include/hyprland/src \
-            -Wall -Wextra
+            -Wall -Wextra -Wno-error
 
 TARGET   := hyprland-wobbly.so
 
@@ -14,7 +14,7 @@ TARGET   := hyprland-wobbly.so
 all: $(TARGET)
 
 $(TARGET): main.o WobblyModel.o WobblyTransformer.o
-	$(CXX) $(CXXFLAGS) -o $@ $^ -lGLES32
+	$(CXX) $(CXXFLAGS) -o $@ $^ -lGLESv2
 	@echo "✅ Built $(TARGET)"
 
 main.o: src/main.cpp

@@ -3,7 +3,6 @@
 #include <chrono>
 #include <algorithm>
 
-// Logging (same as main.cpp)
 static void tlog(const std::string& s) {
     using namespace std::chrono;
     const auto ms = duration_cast<milliseconds>(
@@ -12,7 +11,6 @@ static void tlog(const std::string& s) {
     fflush(stderr);
 }
 
-// Shaders
 static constexpr const char* VERT_SRC = R"glsl(
     #version 320 es
     layout(location = 0) in vec2 in_pos;
@@ -45,8 +43,7 @@ WobblyTransformer::~WobblyTransformer() {
 void WobblyTransformer::buildMesh(Vector2D winSize) {
     const float* posX = m_model->posX();
     const float* posY = m_model->posY();
-    
-    // Prevent division by zero
+
     const float invW = (winSize.x > 0) ? (1.0f / winSize.x) : 1.0f;
     const float invH = (winSize.y > 0) ? (1.0f / winSize.y) : 1.0f;
 
@@ -61,7 +58,6 @@ void WobblyTransformer::buildMesh(Vector2D winSize) {
         }
     }
 
-    // Build indices once (topology constant for 4x4 grid)
     if (!m_indicesBuilt) {
         int idx = 0;
         for (int r = 0; r < wobbly::Model::GRID_H - 1; ++r) {
@@ -83,94 +79,83 @@ void WobblyTransformer::buildMesh(Vector2D winSize) {
     }
 }
 
-SP<Render::IFramebuffer> WobblyTransformer::transform(
-    SP<Render::IFramebuffer> in) {
-    
+SP<Render::IFramebuffer> WobblyTransformer::transform(SP<Render::IFramebuffer> in) {
     m_frameCount++;
 
-    // ── NULL CHECK ──
     if (!in) {
-        if (m_frameCount % 60 == 0) // Log once per second max
-            tlog("transform: received null framebuffer (frame " + 
-                 std::to_string(m_frameCount) + ")");
-        return in; // Pass through unchanged
+        if (m_frameCount % 60 == 0)
+            tlog("transform: null framebuffer");
+        return in;
     }
-
     if (!m_model) {
-        tlog("ERROR: model is null!");
+        tlog("ERROR: model is null");
         return in;
     }
 
-    // ── LAZY GL INIT (first call only) ──
+    // Lazy GL init
     if (!m_ready) {
         tlog("Initializing GL resources...");
 
         glGenVertexArrays(1, &m_vao);
         glGenBuffers(1, &m_vbo);
         glGenBuffers(1, &m_ebo);
-        
+
         glBindVertexArray(m_vao);
         glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(WVertex), (void*)0);
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(WVertex), (void*)(2*sizeof(float)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(WVertex), (void*)(2 * sizeof(float)));
         glEnableVertexAttribArray(1);
         glBindVertexArray(0);
 
         if (!m_shader.createProgram(VERT_SRC, FRAG_SRC)) {
-            tlog("FATAL: Shader compilation failed!");
+            tlog("FATAL: shader compilation failed");
             return in;
         }
-        
         m_texLoc = glGetUniformLocation(m_shader.program(), "tex");
         m_outFB  = makeShared<Render::GL::CGLFramebuffer>("wobbly-out");
         m_ready  = true;
         tlog("GL init SUCCESS");
     }
 
-    // ── VALIDATE INPUT SIZE ──
+    // Validate input size
     if (in->m_size.x <= 0 || in->m_size.y <= 0) {
         if (m_frameCount % 60 == 0)
-            tlog("transform: invalid size " + 
-                 std::to_string(in->m_size.x) + "x" + 
-                 std::to_string(in->m_size.y));
+            tlog("invalid input size");
         return in;
     }
 
-    // ── ALLOCATE OUTPUT FRAMEBUFFER ──
+    // Allocate output framebuffer
     if (!m_outFB->isAllocated() || m_outFB->m_size != in->m_size) {
         if (!m_outFB->alloc((int)in->m_size.x, (int)in->m_size.y)) {
-            tlog("ERROR: Framebuffer alloc failed!");
+            tlog("framebuffer alloc failed");
             return in;
         }
     }
 
-    // ── BUILD MESH (into arena, no heap alloc) ──
+    // Build mesh (positions, UVs)
     buildMesh(in->m_size);
 
-    // ── RENDER ──
+    // Render
     m_outFB->bind();
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // State caching
     const GLuint prog = m_shader.program();
     if (m_boundProg != prog) {
         glUseProgram(prog);
         m_boundProg = prog;
     }
-    
     if (m_boundVAO != m_vao) {
         glBindVertexArray(m_vao);
         m_boundVAO = m_vao;
     }
 
-    // Texture binding
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, in->getTexture()->m_texID);
     glUniform1i(m_texLoc, 0);
 
-    // Buffer orphaning technique (avoids GPU sync on NVIDIA)
+    // Vertex buffer (orphaning)
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(m_arenaVerts), nullptr, GL_STREAM_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(m_arenaVerts), m_arenaVerts);
@@ -180,19 +165,10 @@ SP<Render::IFramebuffer> WobblyTransformer::transform(
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(m_arenaIndices),
                      m_arenaIndices, GL_STATIC_DRAW);
-        m_indicesBuilt = false; // Only upload once
+        m_indicesBuilt = false; // only upload once
     }
 
-    // Draw call
     glDrawElements(GL_TRIANGLES, IDX_COUNT, GL_UNSIGNED_SHORT, nullptr);
-
-    // Error check (debug builds only)
-#ifdef WOBBLY_DEBUG
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-        tlog("GL error: " + std::to_string(err));
-    }
-#endif
 
     return m_outFB;
 }
